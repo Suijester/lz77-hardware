@@ -1,17 +1,17 @@
 `timescale 1ns / 1ps
 //////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
+// Company: Personal Project
+// Engineer: Aki Subramaniam
 // 
 // Create Date: 07/20/2025 02:56:01 PM
-// Design Name: 
+// Design Name: LZ77 Compression Accelerator
 // Module Name: lz77_compressor
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
+// Project Name: lz77_compressor
+// Target Devices: FPGA
+// Tool Versions: Vivado 2025.1
+// Description: Fully pipelined, parameterizable LZ77 compressor intended for FPGA deployment. 
+// Supports configuration of sliding window and buffer for high speed in exchange for compression.
+// Dependencies: None
 // 
 // Revision:
 // Revision 0.01 - File Created
