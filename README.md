@@ -1,2 +1,5 @@
-# LZ77-Compression-Hardware-Accelerator
-Fully pipelined LZ77 compressor implemented on hardware intended for FPGA. Supports sliding window and buffer configuration, at the cost of compression. Achieves 48.1% on alice29.txt (Canterbury Corpus). Designed for smaller windows and buffers for higher throughput.
+# LZ77 Compression Accelerator
+Verilog-implemented LZ77 greedy compressor designed for FPGAs. Designed for smaller windows and buffers, as throughput is most optimal then, with lowest memory usage. Benchmarked 48.1% on alice29.txt at window size of 4096, and buffer size of 64, although compression can reach higher ratios with larger windows and buffers.
+
+## Acknowledgements
+- Canterbury Corpus (used alice29.txt)
