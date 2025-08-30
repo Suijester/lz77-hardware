@@ -1,17 +1,17 @@
 `timescale 1ns / 1ps
 //////////////////////////////////////////////////////////////////////////////////
-// Company: Personal Project
-// Engineer: Aki Subramaniam
+// Company: 
+// Engineer: 
 // 
 // Create Date: 07/20/2025 02:56:01 PM
-// Design Name: LZ77 Compression Accelerator
+// Design Name: 
 // Module Name: lz77_compressor
-// Project Name: lz77_compressor
-// Target Devices: FPGA
-// Tool Versions: Vivado 2025.1
-// Description: Fully pipelined, parameterizable LZ77 compressor intended for FPGA deployment. 
-// Supports configuration of sliding window and buffer for high speed in exchange for compression.
-// Dependencies: None
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
 // 
 // Revision:
 // Revision 0.01 - File Created
@@ -24,6 +24,7 @@ module lz77_compressor #(
     parameter windowSize = 4095, // window of past data holds 2^12 items
     parameter bufferSize = 63, // buffer of upcoming data holds 2^6 items
     parameter minimumMatchLength = 3, // minimum match length that makes it worth encoding is a match length of 3
+    parameter maxParallelSearches = 256, // any power of two will work s.t. maxParallelSearches < windowSize
     
     // bit size to contain window and buffer
     parameter windowAddressBits = 12,
@@ -55,9 +56,10 @@ module lz77_compressor #(
 parameter idleState = 3'd0;
 parameter inputState = 3'd1;
 parameter searchState = 3'd2;
-parameter encodeState = 3'd3;
-parameter waitState = 3'd4;
-parameter completeState = 3'd5;
+parameter updateSearchState = 3'd3;
+parameter encodeState = 3'd4;
+parameter waitState = 3'd5;
+parameter completeState = 3'd6;
 
 // state identifiers
 reg [2:0] currentState, nextState;
@@ -78,24 +80,32 @@ reg [bufferAddressBits - 1:0] bestIterator;
 // search tools for greedy algorithm
 reg [windowAddressBits - 1:0] bestOffset;
 reg [bufferAddressBits - 1:0] bestMatchLength;
-reg [windowAddressBits - 1:0] currentSearchPosition;
-reg [windowAddressBits - 1:0] currentLength;
+
 reg maxSearchFound;
+
+reg [windowAddressBits:0] currentPositions [0:maxParallelSearches - 1];
+reg [windowAddressBits - 1:0] currentLengths [0:maxParallelSearches - 1];
+integer i;
+
+reg [maxParallelSearches - 1:0] threadSync;
+
+reg [bufferAddressBits - 1:0] combinationalLength;
+reg [windowAddressBits - 1:0] combinationalOffset;
+integer j;
 
 // output register holding all the bytes, we dispense each to outpitBit one by one
 reg [windowAddressBits + bufferAddressBits:0] outputBitRegister;
 reg [4:0] outputBitsLeft; // log2(windowAddressBits + bufferAddressBits + 1)
-reg resetSearch;
 reg lastInputReceived;
 
-// location in circular arrays of 
-reg [bufferAddressBits - 1:0] bufferAddress;
-reg [windowAddressBits - 1:0] windowAddress;
+// location in circular arrays
+reg [bufferAddressBits:0] bufferAddress;
+reg [windowAddressBits:0] windowAddress;
 
-wire [18:0] token; // combinationally assign the token we're going to output
+wire [18:0] token;
 
 assign token = (bestMatchLength >= minimumMatchLength) ? {1'b0, bestOffset[11:0], bestMatchLength[5:0]} : {1'b1, circularBuffer[readPtr], 10'b0};
-assign inputReady = (currentState == inputState) && (charsInBuffer < bufferSize) && (lastInputReceived == 0); // check if we're ready to take an input combinationally
+assign inputReady = (currentState == inputState) && (charsInBuffer < bufferSize) && (lastInputReceived == 0);
 
 always @(posedge clk or negedge rst_n) begin
     if (rst_n == 0) begin // reset goes low, program starts
@@ -119,25 +129,23 @@ always @(posedge clk or negedge rst_n) begin
         charsInWindow <= 0;
         outputValid <= 0;
         
-        // outputting bits to testbench or fpga
         outputBit <= 0;
         outputBitsLeft <= 0;
         
-        // greedy option for search
+        for (i = 0; i < maxParallelSearches; i = i + 1) begin
+            currentPositions[i] <= i;
+            currentLengths[i] <= 0;
+        end
+        
         bestMatchLength <= 0;
         bestOffset <= 0;
+        maxSearchFound <= 0;
+        
+        threadSync <= {maxParallelSearches{1'b0}};
         
     end else begin 
         // advance state and total number of bytes 
         currentState <= nextState;
-        
-        if (resetSearch) begin
-            bestOffset <= 0;
-            bestMatchLength <= 0;
-            currentSearchPosition <= 0;
-            currentLength <= 0;
-            maxSearchFound <= 0;
-        end
     
         case (currentState)
             idleState: begin
@@ -148,15 +156,18 @@ always @(posedge clk or negedge rst_n) begin
                     // setup search variables
                     bestOffset <= 0;
                     bestMatchLength <= 0;
-                    currentSearchPosition <= 0;
-                    currentLength <= 0;
+                    
+                    for (i = 0; i < maxParallelSearches; i = i + 1) begin
+                        currentPositions[i] <= i;
+                        currentLengths[i] <= 0;
+                    end
+                    
                     bestIterator <= 0;
                     
                 end
             end
             
             inputState: begin
-                // accept data from tb or some other input source
                 if (inputValid && inputReady) begin
                     circularBuffer[bufferPtr] <= inputData;
                     bufferPtr <= (bufferPtr + 1) % bufferSize;
@@ -171,33 +182,43 @@ always @(posedge clk or negedge rst_n) begin
             end
 
             searchState: begin
-                // find the addresses of the index we want to access in both window and buffer
-                windowAddress = (windowPtr + currentSearchPosition + currentLength) % (windowSize);
-                bufferAddress = (readPtr + currentLength) % bufferSize;
+                for (i = 0; i < maxParallelSearches; i = i + 1) begin
+                    windowAddress = (windowPtr + currentPositions[i] + currentLengths[i]) % windowSize;
+                    bufferAddress = (readPtr + currentLengths[i]) % bufferSize;
 
-                // check if our position + length exceeds the number of elements in array, if the next characters match, and if our string is shorter than the buffer, which it should be
-                if (currentSearchPosition + currentLength < charsInWindow && 
-                   circularWindow[windowAddress] == circularBuffer[bufferAddress] &&
-                   currentLength < bufferSize) begin
-                    currentLength <= currentLength + 1;
-                end else begin
-                    if (currentLength > bestMatchLength) begin
-                        bestMatchLength <= currentLength;
-                        bestOffset <= currentSearchPosition;
-                        if (currentLength >= bufferSize) begin
-                            maxSearchFound <= 1;
+                    if ((currentPositions[i] + currentLengths[i] < charsInWindow) &&
+                        (currentLengths[i] < charsInBuffer) &&
+                        (circularWindow[windowAddress] == circularBuffer[bufferAddress])) begin
+                        currentLengths[i] <= currentLengths[i] + 1;
+                    end else begin
+                        currentPositions[i] <= (currentPositions[i] + maxParallelSearches >= charsInWindow) ? charsInWindow : (currentPositions[i] + maxParallelSearches);
+                        if (currentPositions[i] + maxParallelSearches >= charsInWindow) begin
+                            threadSync[i] <= 1;
                         end
+                        currentLengths[i] <= 0;
                     end
-                    // restart the search one position ahead, since we've now failed to match, so we can find the local best choice
-                    currentSearchPosition <= currentSearchPosition + 1;
-                    currentLength <= 0;
                 end
+            end
+            
+            updateSearchState: begin
+                if (combinationalLength > bestMatchLength) begin
+                    bestMatchLength <= combinationalLength;
+                    bestOffset <= combinationalOffset;
+                end 
             end
 
             encodeState: begin
+                maxSearchFound <= 0;
+                bestMatchLength <= 0;
+                bestOffset <= 0;
+                threadSync <= 0;
+                    
+                for (i = 0; i < maxParallelSearches; i = i + 1) begin
+                    currentLengths[i] <= 0;
+                    currentPositions[i] <= i;
+                end
+                
                 if (!outputValid) begin
-                    maxSearchFound <= 0;
-                    // encode our token, and encode the very first one into outputBit
                     outputBitRegister <= token << 1;
                     outputBit <= token[18]; 
                     
@@ -210,11 +231,10 @@ always @(posedge clk or negedge rst_n) begin
                     end
                     outputValid <= 1;
                 end else if (outputValid && outputBitsLeft > 0 && outputReady) begin
-                    // pass bits out to the tb or output source
                     outputBit <= outputBitRegister[18];
                     outputBitRegister <= outputBitRegister << 1;
                     outputBitsLeft <= outputBitsLeft - 1;
-                    // reset when we only have 1 bit left
+                    
                     if (outputBitsLeft == 1) begin
                         outputValid <= 0;
                     end
@@ -222,10 +242,8 @@ always @(posedge clk or negedge rst_n) begin
             end
                 
             waitState: begin
-                // cleanup process
                 if (bestIterator > 0) begin
                     if (charsInWindow < windowSize) begin
-                        // write chars to our window from buffer, since we just encoded
                         circularWindow[(windowPtr + charsInWindow) % windowSize] <= circularBuffer[readPtr];
                         charsInWindow <= charsInWindow + 1;
                     end else begin
@@ -247,11 +265,8 @@ always @(posedge clk or negedge rst_n) begin
     end
 end
 
-// next state combinational logic
 always @(*) begin
-    resetSearch = 0;
     case (currentState)
-        // if given command to start, begin compression
         idleState: begin
             if (start) begin
                 nextState = inputState;
@@ -260,7 +275,6 @@ always @(*) begin
             end
         end
         
-        // continue to search if we fill buffer or if we have no chars left to receive
         inputState: begin
             if ((charsInBuffer == bufferSize && lastInputReceived == 0) || (lastInputReceived == 1 && charsInBuffer > 0)) begin
                 nextState = searchState;
@@ -268,17 +282,19 @@ always @(*) begin
                 nextState = inputState;
             end
         end
-        
-        // search unless we've exhausted all positions or found the best search plausible
+
         searchState: begin
-            if (currentSearchPosition >= charsInWindow || maxSearchFound) begin
+            nextState = updateSearchState;
+        end
+        
+        updateSearchState: begin
+            if (&threadSync) begin
                 nextState = encodeState;
             end else begin
                 nextState = searchState;
             end
         end
-        
-        // encode while we have bits to encode, otherwise begin cleanup
+
         encodeState: begin
             if (outputValid && outputBitsLeft == 1 && outputReady) begin
                 nextState = waitState;
@@ -286,13 +302,11 @@ always @(*) begin
                 nextState = encodeState;
             end
         end
-    
-        // continue cleanup unless we're out of chars to write to window, then accept more chars if we can, or just search, and if we're out of chars completely, finish compression
+
         waitState: begin
             if (bestIterator > 0) begin
                 nextState = waitState;
             end else begin
-                resetSearch = 1;
                 if (lastInputReceived == 1 && charsInBuffer == 0) begin
                     nextState = completeState;
                 end else if (lastInputReceived == 1 && charsInBuffer > 0) begin
@@ -303,6 +317,17 @@ always @(*) begin
             end
         end 
     endcase
+end
+
+always @(*) begin
+    combinationalLength = 0;
+    combinationalOffset = 0;
+    for (j = 0; j < maxParallelSearches; j = j + 1) begin
+        if (currentLengths[j] > combinationalLength) begin
+            combinationalLength = currentLengths[j];
+            combinationalOffset = currentPositions[j];
+        end
+    end
 end
 
 endmodule
