@@ -21,10 +21,10 @@
 
 
 module lz77_compressor #(
-    parameter windowSize = 4095, // window of past data holds 2^12 items
-    parameter bufferSize = 63, // buffer of upcoming data holds 2^6 items
+    parameter windowSize = 1023, // window of past data holds 2^12 items
+    parameter bufferSize = 31, // buffer of upcoming data holds 2^6 items
     parameter minimumMatchLength = 3, // minimum match length that makes it worth encoding is a match length of 3
-    parameter maxParallelSearches = 256, // any power of two will work s.t. maxParallelSearches < windowSize
+    parameter maxParallelSearches = 16, // any power of two will work s.t. maxParallelSearches < windowSize
     
     // bit size to contain window and buffer
     parameter windowAddressBits = 12,
@@ -112,7 +112,6 @@ assign inputReady = (currentState == inputState) && (charsInBuffer < bufferSize)
 always @(posedge clk or negedge rst_n) begin
     if (rst_n == 0) begin // reset goes low, program starts
         currentState <= idleState;
-        nextState <= currentState;
         
         // current state is starting up, can set busy/done to low
         busy <= 0;
@@ -268,7 +267,6 @@ always @(posedge clk or negedge rst_n) begin
             completeState: begin
                 busy <= 0;
                 done <= 1;
-                nextState <= currentState;
             end
         endcase
     end
@@ -320,7 +318,11 @@ always @(*) begin
                     nextState = inputState;
                 end
             end
-        end 
+        end
+        
+        completeState: begin
+            nextState = completeState;
+        end
     endcase
 end
 
