@@ -37,6 +37,7 @@ _Project Device: Artix-7, xc7a100tcsg324-1_
 ### Timing & Power
 - **Timing:** Timing violations were significant, with major worst negative slack, as a result of complex combinational logic.
 - **Power:** Total On-Chip Power (Simulated): 0.144 W
+- **Junction Temp:** Estimated 25.7 C
 
 ## Development Process
 ### C++ Development
