@@ -14,14 +14,27 @@ _Above is the state diagram of the LZ77 Implementation, with short summary of ho
 - **Complete State:** Completed compression successfully, signal for end of program.
 
 ![LZ77 Hardware Block Diagram](https://github.com/user-attachments/assets/c40e7219-f886-48e0-9e70-6622fdc249c6)
-_Above is the hardware diagram of the LZ77 Implementation, with threads being permitted in any power of two under the window size._
+_Above is the hardware diagram of the LZ77 Implementation, with threads being permitted in any power of two under the window size._ <br>
 For simulation, LUT arrays are used for parallelism for easier read/write access to minimize simulation times. Real FPGA deployment would require Block RAM usage for the circular sliding window. 
 
 ## Benchmarking
+### Simulation Results (High Instantiated Parameters)
+| Benchmark         | Value |
+|-------------------|-------|
+| Threads           | 256    |
+| Window Size       | 4096  |
+| Buffer Size       | 64    |
+| Throughput        | 9 MB/s |
+| Compression Ratio | ~48% (alice29.txt) |
+<br>
+Simulation Results used higher instantiated parameters, as well as LUT arrays instead of Block RAM to speed up throughput.
 
+### Synthesis Results (Low Instantiated Parameters)
+_Project Device: Artix-7, xc7a100tcsg324-1_
 
-
-
+| Threads | Window | Buffer | LUTs  | FFs  |
+|--------|--------|--------|-------|-------|
+|  16    | 1024   | 32     | 65.94%| 7.09% |
 
 ## Development Process
 ### C++ Development
