@@ -7,8 +7,10 @@ A classical LZ77 Greedy Compressor, I initially sought to implement this in C++.
 
 Every compressed token was either a match token or a literal token, if the literal token bit output was more optimal than the match token output. Literal tokens simply had a high flag bit, to identify that they are literals, then spent an additional to directly encode the character. Match tokens, used if the match found is better than directly encoding all characters involved into literals, had a low flag bit, offset bits (at most clog2(sliding window length)), and length bits (at most clog2(buffer length)). 
 
-My first solution was to immediately keep all compressed outputs inside of a struct of Tokens, which although effective and easy to model, lost a significant chunk of compression as a product of inherent C++ struct packing. To minimize compression losses, I then implemented a minimal bit-packing solution where all output bits from the sliding window were modeled into...
+My first solution was to immediately keep all compressed outputs inside of a struct of Tokens, which although effective and easy to model, lost a significant chunk of compression as a product of inherent C++ struct packing. While bit fields enabled me to minimize bit usage as much as possible, compression was overall hindered by compiler structure optimization. To minimize compression losses in software, I then implemented a minimal bit-packing solution, where we packed bits directly into bytes, utilizing a simple class to write bits into bytes and flush empty bytes. This method maximized compression, although somewhat complicated working directly with bytes, and had a rather good output.
 
+### Verilog Development
+After writing the C++ framework and code to better understand the algorithm, I implemented the algorithm into Verilog. LZ77 is highly sequential, so gains are limited to , although minor gains can be achieved through parallelism during searching. 
 
 ## Acknowledgements
 - Canterbury Corpus (used alice29.txt)
