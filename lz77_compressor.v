@@ -56,16 +56,15 @@ module lz77_compressor #(
 parameter idleState = 3'd0;
 parameter inputState = 3'd1;
 parameter searchState = 3'd2;
-parameter updateSearchState = 3'd3;
-parameter encodeState = 3'd4;
-parameter waitState = 3'd5;
-parameter completeState = 3'd6;
+parameter encodeState = 3'd3;
+parameter waitState = 3'd4;
+parameter completeState = 3'd5;
 
 // state identifiers
 reg [2:0] currentState, nextState;
 
 // circular arrays that use BRAM and distributed RAM, since the arrays are large and small respectively
-reg [7:0] circularWindow [0:windowSize - 1];
+(*ram_style = "block"*)reg [7:0] circularWindow [0:windowSize - 1];
 reg [7:0] circularBuffer [0:bufferSize - 1];
 
 reg [windowAddressBits - 1:0] windowPtr; // points to current first position in the circularWindow
@@ -97,6 +96,9 @@ integer j;
 reg [windowAddressBits + bufferAddressBits:0] outputBitRegister;
 reg [4:0] outputBitsLeft; // log2(windowAddressBits + bufferAddressBits + 1)
 reg lastInputReceived;
+
+reg waitCycle;
+reg delayBeforeEncode;
 
 // location in circular arrays
 reg [bufferAddressBits:0] bufferAddress;
@@ -140,6 +142,9 @@ always @(posedge clk or negedge rst_n) begin
         bestMatchLength <= 0;
         bestOffset <= 0;
         maxSearchFound <= 0;
+        
+        waitCycle <= 0;
+        delayBeforeEncode <= 0;
         
         threadSync <= {maxParallelSearches{1'b0}};
         
@@ -197,14 +202,18 @@ always @(posedge clk or negedge rst_n) begin
                         end
                         currentLengths[i] <= 0;
                     end
+                    
+                    if (combinationalLength > bestMatchLength && waitCycle) begin // for the very first cycle, combinational length will hold undefined values, so we need to wait for a cycle until it's updated.
+                        bestMatchLength <= combinationalLength;
+                        bestOffset <= combinationalOffset;
+                    end else begin
+                        waitCycle <= 1;
+                    end
+                    
+                    if (&threadSync) begin
+                        delayBeforeEncode <= 1;
+                    end
                 end
-            end
-            
-            updateSearchState: begin
-                if (combinationalLength > bestMatchLength) begin
-                    bestMatchLength <= combinationalLength;
-                    bestOffset <= combinationalOffset;
-                end 
             end
 
             encodeState: begin
@@ -284,7 +293,11 @@ always @(*) begin
         end
 
         searchState: begin
-            nextState = updateSearchState;
+            if (&threadSync && delayBeforeEncode) begin
+                nextState = encodeState;
+            end else begin
+                nextState = searchState;
+            end
         end
         
         updateSearchState: begin
