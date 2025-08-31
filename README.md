@@ -68,5 +68,5 @@ The implementation was certainly non-trivial. Threads were given different tasks
 Additionally, for actual FPGA deployment, I would advise not implementing this code directly onto an FPGA, but rather modifying it so that the circular window is dual-port BRAM based. Single-port is too expensive in throughput, and if properly implemented, throughput will be minimally effected. BRAM implementation is out of the scope of this project, so it remains undone.
 
 ## Acknowledgements
-- Canterbury Corpus (used alice29.txt)
+- Canterbury Corpus (alice29.txt)
 - Vivado (simulation)
