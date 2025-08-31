@@ -73,7 +73,6 @@ reg [bufferAddressBits:0] charsInBuffer; // contains the current number of chara
 reg [bufferAddressBits - 1:0] bufferPtr; // points to the current erasable element in the buffer
 reg [bufferAddressBits - 1:0] readPtr; // points to the zero element of the buffer
 
-reg [31:0] acceptedInputBytes; // number of input characters accepted
 reg [bufferAddressBits - 1:0] bestIterator;
 
 // search tools for greedy algorithm
@@ -123,8 +122,7 @@ always @(posedge clk or negedge rst_n) begin
         bufferPtr <= 0;
         readPtr <= 0;
         
-        // no input accepted or processed yet, 
-        acceptedInputBytes <= 0;
+        // no input accepted or processed yet,
         bytesRead <= 0;
         lastInputReceived <= 0;
         charsInWindow <= 0;
@@ -176,7 +174,6 @@ always @(posedge clk or negedge rst_n) begin
                     circularBuffer[bufferPtr] <= inputData;
                     bufferPtr <= (bufferPtr + 1) % bufferSize;
                     charsInBuffer <= charsInBuffer + 1;
-                    acceptedInputBytes <= acceptedInputBytes + 1;
                     bytesRead <= bytesRead + 1;
                     
                     if (lastInputPassed) begin
