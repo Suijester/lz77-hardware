@@ -1,5 +1,7 @@
 # LZ77 Compression Accelerator
-Verilog-implemented LZ77 greedy compressor designed for FPGAs. Designed for adjustable parameterization, with sliding window, buffer, and parallel search size all adjustable. Throughput increases with parallel threads. Benchmarked 48.1% on alice29.txt at window size of 4096, and buffer size of 64, although compression can reach higher ratios with larger windows and buffers. SystemVerilog testbench included.
+Verilog-implemented LZ77 greedy compressor designed for FPGAs. Designed for adjustable parameterization, with sliding window, buffer, and parallel search size all adjustable. Throughput increases with parallel threads. Larger sliding window and buffer increase compression, and decrease throughput/cost more memory. 
+
+Benchmarked 48.1% on alice29.txt at window size of 4096, and buffer size of 64, although compression can reach higher ratios with larger windows and buffers. Approximately 5 MB/s throughput at 256 parallel threads. SystemVerilog testbench included.
 
 ## Development Process
 ### C++ Development
