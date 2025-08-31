@@ -14,10 +14,10 @@ _Above is the state diagram of the LZ77 Implementation, with short summary of ho
 - **Complete State:** Completed compression successfully, signal for end of program.
 
 ![LZ77 Hardware Block Diagram](https://github.com/user-attachments/assets/c40e7219-f886-48e0-9e70-6622fdc249c6)
-_Above is the hardware diagram of the LZ77 Implementation, with threads being permitted in any power of two under the window size._ <br>
-For simulation, LUT arrays are used for parallelism for easier read/write access to minimize simulation times. Real FPGA deployment would require Block RAM usage for the circular sliding window. 
+_Above is the hardware diagram of the LZ77 Implementation, with threads being permitted in any power of two under the window size._ <br> 
 
 ## Benchmarking
+For simulation and synthesis, LUT arrays were used for parallelism for easier read/write access to minimize synthesis and simulation times. Real FPGA deployment would require BRAM usage. Additionally, for synthesis, lower parameters were used to fit within LUT cost. Timing violations did occur, but synthesis with lower parameters avoids this better.
 ### Simulation Results (High Instantiated Parameters)
 | Benchmark         | Value |
 |-------------------|-------|
@@ -26,8 +26,6 @@ For simulation, LUT arrays are used for parallelism for easier read/write access
 | Buffer Size       | 64    |
 | Throughput        | 9 MB/s |
 | Compression Ratio | ~48% (alice29.txt) |
-<br>
-Simulation Results used higher instantiated parameters, as well as LUT arrays instead of Block RAM to speed up throughput.
 
 ### Synthesis Results (Low Instantiated Parameters)
 _Project Device: Artix-7, xc7a100tcsg324-1_
@@ -35,6 +33,10 @@ _Project Device: Artix-7, xc7a100tcsg324-1_
 | Threads | Window | Buffer | LUTs  | FFs  |
 |--------|--------|--------|-------|-------|
 |  16    | 1024   | 32     | 65.94%| 7.09% |
+
+### Timing & Power
+-**Timing:** Timing violations were significant, with major worst negative slack, as a result of complex combinational logic.
+-**Power:** Total On-Chip Power (Simulated): 0.144 W
 
 ## Development Process
 ### C++ Development
