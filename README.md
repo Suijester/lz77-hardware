@@ -35,8 +35,8 @@ _Project Device: Artix-7, xc7a100tcsg324-1_
 |  16    | 1024   | 32     | 65.94%| 7.09% |
 
 ### Timing & Power
--**Timing:** Timing violations were significant, with major worst negative slack, as a result of complex combinational logic.
--**Power:** Total On-Chip Power (Simulated): 0.144 W
+- **Timing:** Timing violations were significant, with major worst negative slack, as a result of complex combinational logic.
+- **Power:** Total On-Chip Power (Simulated): 0.144 W
 
 ## Development Process
 ### C++ Development
