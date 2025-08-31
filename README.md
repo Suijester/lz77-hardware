@@ -1,9 +1,24 @@
 # LZ77 Compression Accelerator
-Verilog-implemented LZ77 greedy compressor designed for FPGAs. Designed for instantiable parameterization, with sliding window, buffer, and parallel search size all adjustable. Throughput increases with parallel threads. Larger sliding window and buffer increase compression, and decrease throughput/cost more memory. 
+Verilog-implemented LZ77 greedy compressor designed for FPGAs. Designed for instantiable parameterization, with sliding window, buffer, and parallel search size all adjustable. Throughput increases with parallel threads. Larger sliding window and buffer increase compression, and decrease throughput/cost more FPGA resources. 
 
 Benchmarked 48.1% on alice29.txt at window size of 4096, and buffer size of 64, although compression can reach higher ratios with larger windows and buffers. Approximately 5 MB/s throughput at 256 parallel threads. SystemVerilog testbench included.
 
 ## How It Works
+![LZ77 Pipeline State Diagram](https://github.com/user-attachments/assets/f1e4c520-bd96-4956-985f-4a06b3fadcce)
+_Above is the state diagram of the LZ77 Implementation, with short summary of how each state operates._
+- **Idle State:** Initializes variables, waits until the start signal is passed to begin compression.
+- **Input State:** Fills circular buffer with input data until buffer is full or no input data remains.
+- **Search State:** Performs parallel greedy searches throughout the circular window to find the best match.
+- **Encode State:** Generates an output of either a match or literal token, based on best match length.
+- **Wait State:** Updates circular window with searched and encoded bytes.
+- **Complete State:** Completed compression successfully, signal for end of program.
+
+![LZ77 Hardware Block Diagram](https://github.com/user-attachments/assets/c40e7219-f886-48e0-9e70-6622fdc249c6)
+_Above is the hardware diagram of the LZ77 Implementation, with threads being permitted in any power of two under the window size._
+For simulation, LUT arrays are used for parallelism for easier read/write access to minimize simulation times. Real FPGA deployment would require Block RAM usage for the circular sliding window. 
+
+## Benchmarking
+
 
 
 
