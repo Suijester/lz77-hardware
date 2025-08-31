@@ -299,14 +299,6 @@ always @(*) begin
                 nextState = searchState;
             end
         end
-        
-        updateSearchState: begin
-            if (&threadSync) begin
-                nextState = encodeState;
-            end else begin
-                nextState = searchState;
-            end
-        end
 
         encodeState: begin
             if (outputValid && outputBitsLeft == 1 && outputReady) begin
