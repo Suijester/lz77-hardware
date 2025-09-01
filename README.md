@@ -1,4 +1,6 @@
 # LZ77 Compression Accelerator
+**Pipelined, parameterized LZ77 hardware accelerator in Verilog, ~48% on standard corpus text.**
+
 Verilog-implemented LZ77 greedy compressor designed for FPGAs. Designed for instantiable parameterization, with sliding window, buffer, and parallel search size all adjustable. Throughput directly increases with parallel threads. Larger sliding window and buffer increase compression ratio, but simulataneously decrease throughput/cost more FPGA resources. Compression ratio is proportional to text length.
 
 Parallelization is achieved through multiple parallel threads searching different positions within the sliding window at any given time, increasing throughput significantly. 
