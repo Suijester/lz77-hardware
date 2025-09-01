@@ -1,5 +1,5 @@
 # LZ77 Compression Accelerator
-_**Pipelined, parallel, parameterized LZ77 hardware accelerator in Verilog <br> ~48% compression, ~9 MB/s throughput simulated on standard corpus text.**_
+_**Pipelined, parallel, parameterized LZ77 hardware accelerator in Verilog. <br> ~48% compression, ~9 MB/s throughput simulated on standard corpus text.**_
 
 Verilog-implemented LZ77 greedy compressor designed for FPGAs. Designed for instantiable parameterization, with sliding window, buffer, and parallel search size all adjustable. Throughput directly increases with parallel threads. Larger sliding window and buffer increase compression ratio, but simulataneously decrease throughput/cost more FPGA resources. Compression ratio is proportional to text length.
 
